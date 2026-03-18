@@ -99,7 +99,7 @@ function areTitlesSimilar(t1: string, t2: string) {
     if (s2.includes(bigram)) matches++;
   }
   const similarity = (2.0 * matches) / (s1.length + s2.length - 2);
-  return similarity > 0.55;
+  return similarity >= 0.40;
 }
 
 // Helper: Format relative time

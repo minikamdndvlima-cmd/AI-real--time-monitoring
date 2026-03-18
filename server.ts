@@ -69,8 +69,8 @@ async function startServer() {
       const data = JSON.parse(text);
       res.json({ status: 'success', provider: 'Grok', data });
     } catch (error: any) {
-      console.error('Grok API Error:', error);
-      res.status(500).json({ status: 'error', provider: 'Grok', message: error.message || 'Failed to fetch from Grok' });
+      console.error('Grok API Error Details:', error);
+      res.status(500).json({ status: 'error', provider: 'Grok', message: typeof error === 'string' ? error : (error.message || 'Failed to fetch from Grok') });
     }
   });
 
@@ -124,9 +124,9 @@ async function startServer() {
       
       const data = JSON.parse(text);
       res.json({ status: 'success', provider: 'Kimi', data });
-    } catch (error) {
-      console.error('Kimi API Error:', error);
-      res.status(500).json({ status: 'error', provider: 'Kimi', message: 'Failed to fetch from Kimi' });
+    } catch (error: any) {
+      console.error('Kimi API Error Details:', error);
+      res.status(500).json({ status: 'error', provider: 'Kimi', message: typeof error === 'string' ? error : (error.message || 'Failed to fetch from Kimi') });
     }
   });
 
