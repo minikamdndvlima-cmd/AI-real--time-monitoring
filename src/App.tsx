@@ -86,6 +86,22 @@ const analysisSchema = {
   }
 };
 
+// Helper: Title Similarity (Deduplication)
+function areTitlesSimilar(t1: string, t2: string) {
+  const s1 = t1.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+  const s2 = t2.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
+  if (s1.length === 0 || s2.length === 0) return false;
+  if (s1.includes(s2) || s2.includes(s1)) return true;
+
+  let matches = 0;
+  for (let i = 0; i < s1.length - 1; i++) {
+    const bigram = s1.substring(i, i + 2);
+    if (s2.includes(bigram)) matches++;
+  }
+  const similarity = (2.0 * matches) / (s1.length + s2.length - 2);
+  return similarity > 0.55;
+}
+
 // Helper: Format relative time
 function getTimeAgo(timestamp: number) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
@@ -99,30 +115,30 @@ function getTimeAgo(timestamp: number) {
 
 function NewsCard({ item }: { item: AnalyzedEvent }) {
   const getScoreColor = (score: number) => {
-    if (score >= 9) return 'bg-purple-500/20 text-purple-400 border-purple-500/30 shadow-[0_0_15px_rgba(168,85,247,0.15)]';
-    if (score >= 7) return 'bg-red-500/20 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]';
-    if (score >= 4) return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-    return 'bg-slate-500/20 text-slate-400 border-slate-500/30';
+    if (score >= 9) return 'bg-purple-100 text-purple-700 border-purple-200 shadow-sm';
+    if (score >= 7) return 'bg-red-100 text-red-700 border-red-200 shadow-sm';
+    if (score >= 4) return 'bg-amber-100 text-amber-700 border-amber-200';
+    return 'bg-slate-100 text-slate-600 border-slate-200';
   };
 
   return (
-    <div className={`p-5 rounded-xl bg-[#111827]/60 backdrop-blur-sm border ${item.isNew ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.1)]' : 'border-slate-800/80'} hover:border-slate-600 transition-colors group relative overflow-hidden`}>
+    <div className={`p-5 rounded-xl bg-white backdrop-blur-sm border shadow-sm ${item.isNew ? 'border-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'border-slate-200'} hover:border-slate-300 hover:shadow-md transition-all group relative overflow-hidden`}>
       {item.isNew && (
-        <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+        <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
       )}
       
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3 text-xs font-medium">
-          <span className={`flex items-center gap-1.5 ${item.isNew ? 'text-emerald-400' : 'text-slate-400'}`}>
+          <span className={`flex items-center gap-1.5 ${item.isNew ? 'text-emerald-600' : 'text-slate-500'}`}>
             <Clock className="w-3.5 h-3.5" />
             {getTimeAgo(item.timestamp)}
           </span>
-          <span className="text-slate-700">•</span>
-          <span className="text-cyan-400/90">{item.semantic_sources_count} Sources Merged</span>
+          <span className="text-slate-300">•</span>
+          <span className="text-cyan-600 font-semibold">{item.semantic_sources_count} Sources Merged</span>
         </div>
         <div className="flex items-center gap-2">
           {item.isNew && (
-            <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">
               <Zap className="w-3 h-3" />
               NEW
             </span>
@@ -134,20 +150,20 @@ function NewsCard({ item }: { item: AnalyzedEvent }) {
         </div>
       </div>
 
-      <h3 className="text-lg font-semibold text-slate-100 mb-2 group-hover:text-emerald-300 transition-colors">
+      <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-emerald-600 transition-colors">
         {item.primary_title}
       </h3>
-      <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+      <p className="text-sm text-slate-600 mb-4 leading-relaxed">
         {item.justification}
       </p>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="px-2.5 py-1 rounded-md bg-indigo-500/10 text-xs font-medium text-indigo-300 border border-indigo-500/20 flex items-center gap-1">
+        <span className="px-2.5 py-1 rounded-md bg-indigo-50 text-xs font-medium text-indigo-700 border border-indigo-200 flex items-center gap-1">
           <TrendingUp className="w-3 h-3" />
           {item.trend_tag}
         </span>
         {item.entities.map(ent => (
-          <span key={ent} className="px-2.5 py-1 rounded-md bg-slate-800/40 text-xs font-medium text-slate-300 border border-slate-700/50">
+          <span key={ent} className="px-2.5 py-1 rounded-md bg-slate-50 text-xs font-medium text-slate-600 border border-slate-200">
             {ent}
           </span>
         ))}
@@ -189,6 +205,7 @@ export default function App() {
   const [needsApiKey, setNeedsApiKey] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [timeframe, setTimeframe] = useState<'24h' | '7d' | '30d'>('24h');
+  const [region, setRegion] = useState<'global' | 'domestic' | 'overseas'>('global');
   
   const [providers, setProviders] = useState<ProviderStatus[]>([
     { name: 'Gemini (Search)', status: 'loading' },
@@ -299,14 +316,28 @@ export default function App() {
           }
         };
 
-        // 1. Fetch from all 3 sources concurrently
-        const [geminiData, grokData, kimiData] = await Promise.all([
-          fetchGeminiSearch(),
-          fetchProvider('/api/news/grok', 'Grok (X)'),
-          fetchProvider('/api/news/kimi', 'Kimi (Web)')
-        ]);
+        // 1. Fetch from sources based on region conditionally
+        const fetchPromises = [];
+        
+        if (region === 'global' || region === 'overseas') {
+          fetchPromises.push(fetchGeminiSearch());
+          fetchPromises.push(fetchProvider('/api/news/grok', 'Grok (X)'));
+        } else {
+          setProviders(prev => prev.map(p => 
+            p.name === 'Gemini (Search)' || p.name === 'Grok (X)' ? { ...p, status: 'success', message: 'Skipped' } : p
+          ));
+        }
+        
+        if (region === 'global' || region === 'domestic') {
+          fetchPromises.push(fetchProvider('/api/news/kimi', 'Kimi (Web)'));
+        } else {
+          setProviders(prev => prev.map(p => 
+            p.name === 'Kimi (Web)' ? { ...p, status: 'success', message: 'Skipped' } : p
+          ));
+        }
 
-        const allRawData = [...geminiData, ...grokData, ...kimiData];
+        const rawResults = await Promise.all(fetchPromises);
+        const allRawData = rawResults.flat();
         
         if (allRawData.length > 0) {
           // 2. Pass to Analysis Engine (Gemini)
@@ -330,20 +361,22 @@ export default function App() {
               p.name === 'Analysis Engine' ? { name: 'Analysis Engine', status: 'success' } : p
             ));
 
-            // Add timestamps and sort by timestamp
+            // Add timestamps, unique keys, and sort
             const processed = clusters.map((c, i) => ({
               ...c,
-              timestamp: Date.now() - (i * 60000 * 5), // Stagger timestamps slightly for realism
+              event_cluster_id: `${c.event_cluster_id || 'evt'}-${Date.now()}-${i}`,
+              timestamp: Date.now() - (i * 60000), // Stagger slightly by 1 min per entry
               isNew: isBackground
             }));
             
             setNews(prev => {
-              const existingHeadlines = new Set(prev.map(item => item.headline));
-              const newItems = processed.filter(item => !existingHeadlines.has(item.headline));
+              const newItems = processed.filter(item => 
+                !prev.some(existing => areTitlesSimilar(existing.primary_title, item.primary_title))
+              );
               
               if (isBackground && newItems.length === 0) return prev;
               
-              const merged = isBackground ? [...newItems, ...prev.map(p => ({...p, isNew: false}))] : processed;
+              const merged = isBackground ? [...newItems, ...prev.map(p => ({...p, isNew: false}))] : newItems;
               return merged.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
             });
           } catch (error: any) {
@@ -361,7 +394,7 @@ export default function App() {
             }
             
             // Fallback: Display raw data directly if analysis fails
-            const fallbackProcessed = allRawData.map((item, i) => {
+            const fallbackProcessed: AnalyzedEvent[] = allRawData.map((item, i) => {
               let sourceName = 'Source';
               try {
                 sourceName = new URL(item.source).hostname.replace('www.', '');
@@ -369,24 +402,25 @@ export default function App() {
               
               return {
                 event_cluster_id: `fallback-${Date.now()}-${i}`,
-                headline: item.title,
-                summary: item.description || 'No description available.',
+                primary_title: item.title,
+                justification: item.description || 'No description available.',
+                semantic_sources_count: 1,
                 impact_score: 85 - i, // Arbitrary score for fallback
                 trend_tag: 'AI News',
                 entities: ['AI'],
-                sources: [{ name: sourceName, url: item.source || '#' }],
-                timestamp: Date.now() - (i * 60000 * 5),
+                timestamp: Date.now() - (i * 60000),
                 isNew: isBackground
               };
             });
             
             setNews(prev => {
-              const existingHeadlines = new Set(prev.map(item => item.headline));
-              const newItems = fallbackProcessed.filter(item => !existingHeadlines.has(item.headline));
+              const newItems = fallbackProcessed.filter(item => 
+                !prev.some(existing => areTitlesSimilar(existing.primary_title, item.primary_title))
+              );
               
               if (isBackground && newItems.length === 0) return prev;
               
-              const merged = isBackground ? [...newItems, ...prev.map(p => ({...p, isNew: false}))] : fallbackProcessed;
+              const merged = isBackground ? [...newItems, ...prev.map(p => ({...p, isNew: false}))] : newItems;
               return merged.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
             });
           }
@@ -410,13 +444,14 @@ export default function App() {
     }, 60000);
     
     return () => clearInterval(pollInterval);
-  }, [timeframe]);
+  }, [timeframe, region]);
 
   // Real-time Polling (Hacker News -> Analysis Engine)
   useEffect(() => {
     if (timeframe !== '24h') return;
 
     const fetchHN = async () => {
+      if (region === 'domestic') return; // Skip HN for domestic
       try {
         const res = await fetch('https://hacker-news.firebaseio.com/v0/newstories.json');
         const ids: number[] = await res.json();
@@ -451,12 +486,13 @@ export default function App() {
                 if (clusters.length > 0) {
                   const newItem = {
                     ...clusters[0],
+                    event_cluster_id: `hn-${clusters[0].event_cluster_id || 'evt'}-${Date.now()}`,
                     timestamp: Date.now(),
                     isNew: true
                   };
                   setNews(prev => {
-                    const existingHeadlines = new Set(prev.map(p => p.headline));
-                    if (existingHeadlines.has(newItem.headline)) return prev;
+                    const exists = prev.some(p => areTitlesSimilar(p.primary_title, newItem.primary_title));
+                    if (exists) return prev;
                     return [newItem, ...prev].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
                   });
                 }
@@ -465,18 +501,18 @@ export default function App() {
                 // Fallback for HN item
                 const fallbackItem: AnalyzedEvent = {
                   event_cluster_id: `hn-fallback-${id}`,
-                  headline: item.title,
-                  summary: 'Latest AI discussion from Hacker News.',
-                  impact_score: item.score || 50,
+                  primary_title: item.title,
+                  justification: 'Latest AI discussion from Hacker News.',
+                  semantic_sources_count: 1,
+                  impact_score: Math.min(10, Math.ceil((item.score || 50) / 10)),
                   trend_tag: 'Hacker News',
                   entities: ['AI'],
-                  sources: [{ name: 'Hacker News', url: `https://news.ycombinator.com/item?id=${id}` }],
                   timestamp: Date.now(),
                   isNew: true
                 };
                 setNews(prev => {
-                  const existingHeadlines = new Set(prev.map(p => p.headline));
-                  if (existingHeadlines.has(fallbackItem.headline)) return prev;
+                  const exists = prev.some(p => areTitlesSimilar(p.primary_title, fallbackItem.primary_title));
+                  if (exists) return prev;
                   return [fallbackItem, ...prev].sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
                 });
               }
@@ -493,7 +529,7 @@ export default function App() {
     const pollInterval = setInterval(fetchHN, 60000); // Poll every 60 seconds
 
     return () => clearInterval(pollInterval);
-  }, [timeframe]);
+  }, [timeframe, region]);
 
   const downloadCSV = (days: number) => {
     const now = Date.now();
@@ -531,27 +567,37 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0f1c] text-slate-200 font-sans selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-500/30">
       {/* Top Navigation / Console */}
-      <header className="sticky top-0 z-50 bg-[#0a0f1c]/80 backdrop-blur-xl border-b border-slate-800/80">
-        <div className="max-w-3xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-5">
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200 shadow-sm">
+        <div className="px-8 py-4">
+          <div className="flex flex-wrap items-center justify-between mb-5 gap-4">
             <div className="flex items-center gap-3">
-              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800 border border-slate-700">
-                <Radio className="w-5 h-5 text-emerald-400" />
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100">
+                <Radio className="w-5 h-5 text-emerald-600" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-100 tracking-tight">AI Radar</h1>
-                <p className="text-xs text-slate-400 font-mono mt-0.5">Financial Analysis Engine</p>
+                <h1 className="text-xl font-bold text-slate-900 tracking-tight">AI Radar</h1>
+                <p className="text-xs text-slate-500 font-mono mt-0.5">Financial Analysis Engine</p>
               </div>
             </div>
             
-            {/* Live Indicator & Download */}
-            <div className="flex items-center gap-3">
+            {/* Live Indicator & Filters & Download */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <select 
+                value={region}
+                onChange={(e) => setRegion(e.target.value as any)}
+                className="bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors cursor-pointer shadow-sm"
+              >
+                <option value="global">全球动态</option>
+                <option value="domestic">国内动态</option>
+                <option value="overseas">海外动态</option>
+              </select>
+
               <select 
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value as any)}
-                className="bg-slate-800/50 border border-slate-700/50 text-slate-300 text-xs font-medium rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500/50 hover:bg-slate-700/50 transition-colors cursor-pointer"
+                className="bg-white border border-slate-300 text-slate-700 text-xs font-medium rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors cursor-pointer shadow-sm"
               >
                 <option value="24h">最近 24 小时</option>
                 <option value="7d">最近 7 天</option>
@@ -561,34 +607,34 @@ export default function App() {
               <div className="relative">
                 <button 
                   onClick={() => setShowDownloadMenu(!showDownloadMenu)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/50 border border-slate-700/50 hover:bg-slate-700/50 hover:border-slate-600 transition-colors text-xs font-medium text-slate-300"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 transition-colors text-xs font-medium text-slate-700 shadow-sm"
                 >
                   <Download className="w-3.5 h-3.5" />
                   导出 CSV
                 </button>
                 
                 {showDownloadMenu && (
-                  <div className="absolute right-0 mt-2 w-40 bg-slate-800 border border-slate-700 rounded-lg shadow-xl overflow-hidden z-50">
-                    <div className="px-3 py-2 text-xs font-semibold text-slate-400 border-b border-slate-700 bg-slate-800/50">
+                  <div className="absolute right-0 mt-2 w-40 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden z-50">
+                    <div className="px-3 py-2 text-xs font-semibold text-slate-500 border-b border-slate-100 bg-slate-50">
                       选择时间段
                     </div>
                     <button 
                       onClick={() => downloadCSV(1)}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors flex items-center gap-2"
                     >
                       <Calendar className="w-4 h-4 text-slate-400" />
                       最近 24 小时
                     </button>
                     <button 
                       onClick={() => downloadCSV(7)}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors flex items-center gap-2"
                     >
                       <Calendar className="w-4 h-4 text-slate-400" />
                       最近 7 天
                     </button>
                     <button 
                       onClick={() => downloadCSV(-1)}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors flex items-center gap-2"
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-emerald-600 transition-colors flex items-center gap-2"
                     >
                       <Calendar className="w-4 h-4 text-slate-400" />
                       全部时间
@@ -597,12 +643,12 @@ export default function App() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 shadow-sm">
                 <div className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </div>
-                <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Live</span>
+                <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Live</span>
               </div>
             </div>
           </div>
@@ -615,7 +661,7 @@ export default function App() {
                   p.status === 'success' ? 'bg-emerald-500' : 
                   p.status === 'missing_key' ? 'bg-amber-500' : 'bg-red-500'
                 }`} />
-                <span className={p.status === 'missing_key' ? 'text-amber-500/80' : 'text-slate-400'}>
+                <span className={p.status === 'missing_key' ? 'text-amber-600' : 'text-slate-500'}>
                   {p.name} {p.status === 'missing_key' ? '(Key Required)' : ''}
                 </span>
               </div>
@@ -625,15 +671,15 @@ export default function App() {
       </header>
 
       {/* Main Feed */}
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="px-8 py-8">
         
         {/* Gemini Quota Exceeded Warning */}
         {needsApiKey && (
-          <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-3 text-red-200/90 text-sm">
-            <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 flex items-start gap-3 text-red-800 text-sm">
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-red-400 mb-1">Gemini API Quota Exceeded</p>
-              <p className="mb-3">The default Gemini API key has exceeded its rate limit. To continue using Gemini for search and analysis, please select your own paid Google Cloud API key.</p>
+              <p className="font-semibold text-red-800 mb-1">Gemini API Quota Exceeded</p>
+              <p className="mb-3 text-red-700">The default Gemini API key has exceeded its rate limit. To continue using Gemini for search and analysis, please select your own paid Google Cloud API key.</p>
               <div className="flex gap-3 items-center">
                 <button 
                   onClick={async () => {
@@ -644,11 +690,11 @@ export default function App() {
                       alert('API Key selection is not available in this environment.');
                     }
                   }}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md font-medium transition-colors"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors"
                 >
                   Select API Key
                 </button>
-                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-red-400 hover:text-red-300 underline">
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-red-600 hover:text-red-500 underline font-medium">
                   Billing Documentation
                 </a>
               </div>
@@ -658,12 +704,12 @@ export default function App() {
 
         {/* Missing Keys Warning */}
         {providers.some(p => p.status === 'missing_key') && (
-          <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-amber-200/90 text-sm">
-            <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-800 text-sm">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-400 mb-1">部分数据源未激活</p>
-              <p>为了启用 Grok (X/Twitter) 和 Kimi (国内动态) 的实时搜索，请在 AI Studio 左下角的 <strong>Settings -&gt; Secrets</strong> 中添加 <code className="bg-amber-500/20 px-1 rounded">GROK_API_KEY</code> 和 <code className="bg-amber-500/20 px-1 rounded">KIMI_API_KEY</code>。</p>
-              <p className="mt-1 text-amber-500/70">目前分析引擎仅处理 Gemini 和 Hacker News 的数据。</p>
+              <p className="font-semibold text-amber-800 mb-1">部分数据源未激活</p>
+              <p className="text-amber-700">为了启用 Grok (X/Twitter) 和 Kimi (国内动态) 的实时搜索，请在 AI Studio 左下角的 <strong className="font-semibold">Settings -&gt; Secrets</strong> 中添加 <code className="bg-amber-100 px-1 rounded text-amber-900 border border-amber-200">GROK_API_KEY</code> 和 <code className="bg-amber-100 px-1 rounded text-amber-900 border border-amber-200">KIMI_API_KEY</code>。</p>
+              <p className="mt-1 text-amber-600/90 text-xs">目前分析引擎仅处理 Gemini 和 Hacker News 的数据。</p>
             </div>
           </div>
         )}
@@ -672,17 +718,17 @@ export default function App() {
           {isLoading && news.length === 0 && (
             <div className="space-y-4">
               {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="p-5 rounded-xl bg-[#111827]/60 border border-slate-800/80 animate-pulse">
+                <div key={i} className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm animate-pulse">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-24 h-4 bg-slate-700/50 rounded"></div>
-                    <div className="w-16 h-4 bg-slate-700/50 rounded"></div>
+                    <div className="w-24 h-4 bg-slate-200 rounded"></div>
+                    <div className="w-16 h-4 bg-slate-200 rounded"></div>
                   </div>
-                  <div className="h-6 bg-slate-700/50 rounded w-3/4 mb-3"></div>
-                  <div className="h-4 bg-slate-700/50 rounded w-full mb-2"></div>
-                  <div className="h-4 bg-slate-700/50 rounded w-5/6 mb-4"></div>
+                  <div className="h-6 bg-slate-200 rounded w-3/4 mb-3"></div>
+                  <div className="h-4 bg-slate-200 rounded w-full mb-2"></div>
+                  <div className="h-4 bg-slate-200 rounded w-5/6 mb-4"></div>
                   <div className="flex gap-2">
-                    <div className="w-16 h-6 bg-slate-700/50 rounded-full"></div>
-                    <div className="w-20 h-6 bg-slate-700/50 rounded-full"></div>
+                    <div className="w-16 h-6 bg-slate-200 rounded-full"></div>
+                    <div className="w-20 h-6 bg-slate-200 rounded-full"></div>
                   </div>
                 </div>
               ))}
@@ -707,9 +753,9 @@ export default function App() {
             ))}
           </AnimatePresence>
           
-          {news.length === 0 && !needsApiKey && (
-            <div className="py-12 text-center text-slate-500">
-              <Radio className="w-8 h-8 mx-auto mb-3 opacity-20" />
+          {news.length === 0 && !needsApiKey && !isLoading && (
+            <div className="py-12 text-center text-slate-400">
+              <Radio className="w-8 h-8 mx-auto mb-3 opacity-50" />
               <p>暂无相关动态</p>
             </div>
           )}

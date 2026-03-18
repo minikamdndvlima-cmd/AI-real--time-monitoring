@@ -3,6 +3,11 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import path from 'path';
 import fs from 'fs';
+import dotenv from 'dotenv';
+
+// Load the local env variables in dev
+dotenv.config({ path: '.env.local' });
+dotenv.config();
 
 async function startServer() {
   const app = express();

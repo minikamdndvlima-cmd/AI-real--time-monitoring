@@ -2,19 +2,49 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# AI Real-Time Monitoring App
 
-This contains everything you need to run your app locally.
+This contains everything you need to run your app locally and deploy it online.
 
-View your app in AI Studio: https://ai.studio/apps/25c40bc8-6b7a-4c99-8248-f5dcac95c3c0
+## 🚀 Run Locally
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js (v18+)
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+2. Set the API Keys correctly:
+   Create a `.env.local` or `.env` file and add your required keys (e.g., `GEMINI_API_KEY`, `GROK_API_KEY`, `KIMI_API_KEY`).
+3. Run the app in development mode:
+   ```bash
+   npm run dev
+   ```
+
+## 🛠️ Scripts provided in `package.json`
+
+- `npm run dev`: Starts the Vite + Express dev server using `tsx`.
+- `npm run build`: Builds the Vite React frontend for production.
+- `npm start`: Starts the application in production mode (requires `tsx` and `cross-env`).
+- `npm run lint`: Runs TypeScript type-checking.
+- `npm run clean`: Cleans the `dist` directory.
+
+## 🌍 Deployment
+
+A GitHub action has been configured inside `.github/workflows/deploy.yml` which triggers on pushes to the `main` branch. 
+
+To deploy using this workflow:
+1. Ensure your server can be accessed via SSH.
+2. Add the following secrets to your GitHub Repository (**Settings** -> **Secrets and variables** -> **Actions**):
+   - `SERVER_HOST`: Your server IP address
+   - `SERVER_USER`: Your SSH username (e.g. `root`, `ubuntu`)
+   - `SERVER_SSH_KEY`: Your private SSH key
+3. Push to `main` to trigger the automatic deployment script.
+
+## 🙈 `.gitignore`
+
+The project includes an updated `.gitignore` configured to safely ignore:
+- `node_modules/` and build outputs (`dist/`, `build/`).
+- Private configuration files (`.env`, `.env.local` etc).
+- IDE and editor specific folders (`.vscode/`, `.idea/`).
+- Debug logs (e.g., `npm-debug.log`).
